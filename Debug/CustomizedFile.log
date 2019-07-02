@@ -1,1 +1,4 @@
-﻿  CustomizedFile.vcxproj -> C:\Users\sonug\Desktop\Logic_building\CustomizedFile\Debug\CustomizedFile.exe
+﻿  Customized.c
+c:\users\sonug\desktop\logic_building\customizedfile\customizedfile\customized.c(583): warning C4013: 'gets' undefined; assuming extern returning int
+c:\users\sonug\desktop\logic_building\customizedfile\customizedfile\customized.c(678): warning C4013: 'write' undefined; assuming extern returning int
+  CustomizedFile.vcxproj -> C:\Users\sonug\Desktop\Logic_building\CustomizedFile\Debug\CustomizedFile.exe

@@ -5,6 +5,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<conio.h>
+#include <fcntl.h>
 
 #define MAXINODE 50
 
@@ -286,7 +287,7 @@ int CreateFile(char *name, int permission)
 	SUPERBLOCKobj.FreeInode--;
 	UFDTArr[i].ptrFileTable->readOffset = 0;
 	UFDTArr[i].ptrFileTable->writeOffset = 0;
-	UFDTArr[i].ptrFileTable->mode = 0;
+	UFDTArr[i].ptrFileTable->mode = permission;
 	UFDTArr[i].ptrFileTable->count = 1;
 	UFDTArr[i].ptrFileTable->ptrInode = Temp;
 
@@ -348,19 +349,128 @@ int fstat_file(int fd)
 	return i;
 }
 
-int stat_file(int fd)
+int stat_file(char *name)
 {
 	int i = 0;
-	//Logic remaining
-	return i;
+	int fd = 0;
+
+	if (name == NULL)
+	{
+		return -1;
+	}
+
+	fd = GetFDFromName(name);
+
+	if (fd == -1)
+	{
+		return -2;
+	}
+	else
+	{
+		printf("\n-----------Statistical information about file---------\n");
+		printf("File Name: %s\n", UFDTArr[fd].ptrFileTable->ptrInode->FileName);
+		printf("Inode Number: %d\n",UFDTArr[fd].ptrFileTable->ptrInode->InodeNumber);
+		printf("File Size: %d\n", UFDTArr[i].ptrFileTable->ptrInode->FileSize);
+		printf("Actual File Size: %d\n", UFDTArr[i].ptrFileTable->ptrInode->FileActualSize);
+		printf("Link Count: %d\n", UFDTArr[i].ptrFileTable->ptrInode->LinkCount);
+		printf("Reference count: %d\n", UFDTArr[i].ptrFileTable->ptrInode->ReferenceCount);
+
+		if (UFDTArr[fd].ptrFileTable->ptrInode->permission == 3)
+		{
+			printf("File Permission : Read & Write\n");
+		}
+		else if (UFDTArr[fd].ptrFileTable->ptrInode->permission == 2)
+		{
+			printf("File Permission : Write Only\n");
+		}
+		else if (UFDTArr[fd].ptrFileTable->ptrInode->permission == 1)
+		{
+			printf("File Permission : Read Only\n");
+		}
+	}
+	return 0;
 }
 
-int write(char* name, char *arr, int size)
+int writeFile(int fd, char *arr, int size)
 {
-	int fd = GetFDFromName(name);
-	//Logic remaining
+	int iRet = 0;
+	int writeSize = 0;
 
+	if (UFDTArr[fd].ptrFileTable->mode != WRITE && UFDTArr[fd].ptrFileTable->mode != (READ + WRITE))
+	{
+		return -1;
+	}
+	if (UFDTArr[fd].ptrFileTable->ptrInode->permission != WRITE && UFDTArr[fd].ptrFileTable->ptrInode->permission != (READ + WRITE))
+	{
+		return -1;
+	}
+	if (UFDTArr[fd].ptrFileTable->writeOffset == MAXFILESIZE)
+	{
+		return -2;
+	}
+	if (UFDTArr[fd].ptrFileTable->ptrInode->FileType != REGULAR)
+	{
+		return -3;
+	}
+
+	writeSize = UFDTArr[fd].ptrFileTable->ptrInode->FileActualSize - UFDTArr[fd].ptrFileTable->writeOffset;
+
+	if (writeSize < size)
+	{
+		strncpy(( UFDTArr[fd].ptrFileTable->ptrInode->Buffer + UFDTArr[fd].ptrFileTable->writeOffset ), arr, size);
+		UFDTArr[fd].ptrFileTable->writeOffset = UFDTArr[fd].ptrFileTable->writeOffset + size;
+		UFDTArr[fd].ptrFileTable->ptrInode->FileActualSize = UFDTArr[fd].ptrFileTable->ptrInode->FileActualSize + size;
+	}
+	else
+	{
+		strncpy(UFDTArr[fd].ptrFileTable->ptrInode->Buffer, arr, writeSize);
+		UFDTArr[fd].ptrFileTable->writeOffset = UFDTArr[fd].ptrFileTable->writeOffset + writeSize;
+		UFDTArr[fd].ptrFileTable->ptrInode->FileActualSize = UFDTArr[fd].ptrFileTable->ptrInode->FileActualSize + writeSize;
+	}
+
+	return size;
 }
+
+
+int readFile(int fd, char *arr, int size)
+{
+	int iRet = 0;
+	int readSize = 0;
+
+	if (UFDTArr[fd].ptrFileTable->mode != READ && UFDTArr[fd].ptrFileTable->mode != (READ + WRITE))
+	{
+		return -1;
+	}
+	if (UFDTArr[fd].ptrFileTable->ptrInode->permission != READ && UFDTArr[fd].ptrFileTable->ptrInode->permission != (READ + WRITE))
+	{
+		return -1;
+	}
+	if (UFDTArr[fd].ptrFileTable->readOffset == MAXFILESIZE)
+	{
+		return -2;
+	}
+	if (UFDTArr[fd].ptrFileTable->ptrInode->FileType != REGULAR)
+	{
+		return -3;
+	}
+
+	readSize = UFDTArr[fd].ptrFileTable->ptrInode->FileActualSize - UFDTArr[fd].ptrFileTable->readOffset;
+
+	if (readSize < size)
+	{
+		strncpy(arr, UFDTArr[fd].ptrFileTable->ptrInode->Buffer + UFDTArr[fd].ptrFileTable->readOffset, size);
+		UFDTArr[fd].ptrFileTable->readOffset = UFDTArr[fd].ptrFileTable->readOffset + size;
+	}
+	else
+	{
+		strncpy(arr, UFDTArr[fd].ptrFileTable->ptrInode->Buffer + UFDTArr[fd].ptrFileTable->readOffset, readSize);
+		UFDTArr[fd].ptrFileTable->readOffset = UFDTArr[fd].ptrFileTable->readOffset + readSize;
+	}
+	return size;
+}
+
+
+
 
 
 int main()
@@ -434,7 +544,8 @@ int main()
 			}
 			else if (strcmp(command[0], "stat") == 0)
 			{
-				ret = stat_file(atoi(command[1]));
+				ret = stat_file(command[1]);
+
 				if (ret == -1)
 				{
 					printf("Error: Incomplete parameters.\n");
@@ -457,6 +568,41 @@ int main()
 					printf("Error: Their is no such fie\n");
 				}
 				continue;
+			}
+			else if (strcmp(command[0], "write") == 0)
+			{
+				fd = GetFDFromName(command[1]);
+
+				if (fd == -1)
+				{
+					printf("Incorrect parameter\n");
+					continue;
+				}
+
+				printf("Enter the data to write in the file\n");
+				gets(arr);
+
+				//printf("size is %d", strlen(arr));
+
+				ret = writeFile(fd, arr, strlen(arr));
+
+				if (ret == -1)
+				{
+					printf("Permission Denied.\n");
+				}
+				else if (ret == -2)
+				{
+					printf("There is no sufficient Memory to write\n");
+				}
+				else if (ret == -3)
+				{
+					printf("It is not a regular File\n");
+				}
+				else
+				{
+					printf("Data has been written successfully\n");
+				}
+
 			}
 			else
 			{
@@ -491,18 +637,47 @@ int main()
 			{
 
 			}
-			else if (strcmp(command[0], "write") == 0)
-			{
-				printf("Enter the data to write in the file\n");
-				gets(arr);
-
-				printf("size is %d", strlen(arr));
-
-				write(command[1], arr, strlen(arr));
-			}
+			
 			else if (strcmp(command[0], "read") == 0)
 			{
+				fd = GetFDFromName(command[1]); 
 
+				if (fd == -1)
+				{
+					printf("Error: Incorrect parameter\n");
+					continue;
+				}
+
+				ptr = (char*)malloc(sizeof(atoi(command[2])) + 1);
+
+				if (ptr == NULL)
+				{
+					printf("Error : Memory allocation failure\n");
+					continue;
+				}
+				ret = readFile(fd, ptr, atoi(command[2]));
+
+				if (ret == -1)
+				{
+					printf("Permission Denied.\n");
+				}
+				else if (ret == -2)
+				{
+					printf("Reached at the end of the file\n");
+				}
+				else if (ret == -3)
+				{
+					printf("It is not a regular File\n");
+				}
+				else if (ret == 0)
+				{
+					printf("File is empty\n");
+				}
+				else if(ret > 0)
+				{
+					write(2, ptr, ret);
+				}
+				continue;
 			}
 			else
 			{
